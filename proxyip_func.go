@@ -116,14 +116,14 @@ func Getxici() {
 	https_ips := make([]string, 0)
 	http_ips := make([]string, 0)
 
-	for i := 1; i <= 40; i++ {
+	for i := 1; i <= 20; i++ {
 		xicipage := xici_addr + strconv.Itoa(i)
 		doc, err := get(xicipage)
 		if err != nil {
 			mylog.Error("xici %+v", err)
 			continue
 		}
-		doc.Find("#ip_list tbody tr .odd").Each(func(i int, context *goquery.Selection) {
+		doc.Find("#ip_list tbody .odd").Each(func(i int, context *goquery.Selection) {
 			//地址
 			ip := context.Find("td").Eq(1).Text()
 			//端口
