@@ -1,4 +1,4 @@
-package proxyip
+package main
 
 import (
 	"encoding/json"

@@ -1,4 +1,4 @@
-package proxyip
+package main
 
 import (
 	"fmt"
@@ -11,6 +11,18 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/adamluo159/mylog"
 )
+
+var (
+	proxyfunc = []func(){
+		Getxici,
+	}
+)
+
+func RequestProxyIps() {
+	for i := 0; i < len(proxyfunc); i++ {
+		proxyfunc[i]()
+	}
+}
 
 func getWebDoc(urls string, proxyUrl *url.URL) (*goquery.Document, error) {
 	request, _ := http.NewRequest("GET", urls, nil)
@@ -40,6 +52,8 @@ func getWebDoc(urls string, proxyUrl *url.URL) (*goquery.Document, error) {
 	if err != nil {
 		return nil, fmt.Errorf("getWebDoc url:%s proxy:%+v,  NewDocumentFromResponse err :%+v", urls, proxyUrl, err)
 	}
+	mylog.Debug("get web doc url:%s proxy:%+v", urls, proxyUrl)
+
 	return doc, nil
 }
 
@@ -65,6 +79,10 @@ func get(url_d string) (*goquery.Document, error) {
 
 		if len(ips) == 0 {
 			doc, err = getWebDoc(url_d, nil)
+			if err != nil {
+				mylog.Warn("%+v", err)
+			}
+			break
 		} else {
 			for i := 0; i < len(ips); i++ {
 				purl, err := url.Parse(ips[i])
@@ -122,10 +140,11 @@ func Getxici() {
 				addr = "https://" + addr
 				https_ips = append(https_ips, addr)
 			}
-
 			mylog.Debug("xici get proxy index:%d url:%+v", i, addr)
 		})
+		addHttpIps(http_ips)
+		addHttpsIps(https_ips)
+		http_ips = http_ips[:0]
+		https_ips = https_ips[:0]
 	}
-	addHttpIps(http_ips)
-	addHttpsIps(https_ips)
 }
