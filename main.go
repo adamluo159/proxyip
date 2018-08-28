@@ -16,12 +16,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	mylog.Info("proxyip init .....")
-	RequestProxyIps()
-	go startProxyIpServer(*addr)
-	mylog.Info("proxyip working .....")
-
+	Run(*addr)
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, os.Kill)
 	<-c

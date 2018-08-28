@@ -5,49 +5,45 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/adamluo159/mylog"
 )
 
-func startProxyIpServer(addr string) {
-	http.HandleFunc("/getips", GetIpHandler)
-	http.HandleFunc("/delips", DelIpHandler)
-	if err := http.ListenAndServe(addr, nil); err != nil {
-		panic(err)
-
-	}
-
+var proxy_srv *http.Server = &http.Server{
+	ReadTimeout:    10 * time.Second,
+	WriteTimeout:   10 * time.Second,
+	MaxHeaderBytes: 1 << 20,
 }
 
-type ProxyIp struct {
-	HttpIps  []string `json:"http_ips"`
-	HttpsIps []string `json:"https_ips"`
+func startProxyIpServer(addr string) {
+	proxy_srv.Addr = addr
+	http.HandleFunc("/getips", GetIpHandler)
+	http.HandleFunc("/delips", DelIpHandler)
+	mylog.Info("startProxyIpServer addr:%s", addr)
+	proxy_srv.ListenAndServe()
 }
 
 func GetIpHandler(w http.ResponseWriter, r *http.Request) {
-	p := &ProxyIp{
-		HttpsIps: getHttpsIps(),
-		HttpIps:  getHttpIps(),
-	}
 	defer r.Body.Close()
-
-	b, _ := json.Marshal(p)
+	ips := getIps()
+	b, _ := json.Marshal(ips)
 	fmt.Fprintf(w, string(b))
-
 }
 
 func DelIpHandler(w http.ResponseWriter, r *http.Request) {
 	b, err := ioutil.ReadAll(r.Body)
+	defer r.Body.Close()
+
 	if err != nil {
 		mylog.Warn("read delip http err:%+v, body:%s", err, string(b))
 		return
-
 	}
 	p := &ProxyIp{}
-
 	err = json.Unmarshal(b, p)
 	if err != nil {
 		mylog.Warn("read delip http jsonerr:%+v, body:%s", err, string(b))
 		return
 	}
+	fmt.Fprintf(w, string("ok"))
 }
