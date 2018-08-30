@@ -23,8 +23,7 @@ var (
 	ipcount      int = 20
 	cancel_func  context.CancelFunc
 	close        chan bool = make(chan bool)
-	proxy_f      *os.File
-	fileName     string
+	fileName     string    = "proxyfile"
 )
 
 func Run(serverAddr string) {
@@ -33,7 +32,8 @@ func Run(serverAddr string) {
 		for {
 			select {
 			case <-ctx.Done():
-				mylog.Info("proxyip recv shutdown signal")
+				saveIpsToFile()
+				close <- true
 				return
 			case <-time.After(time.Minute * 5):
 				mylog.Info("begin check proxy valid.. len:%d", len(proxy_map))
@@ -60,16 +60,21 @@ func Run(serverAddr string) {
 		}
 	}(ctx)
 
+	readIpsFromFile()
+	if len(proxy_map) == 0 {
+		RequestProxyIps()
+	}
+
 	go startProxyIpServer(serverAddr)
 	cancel_func = cancel
 }
 
 func Destory() {
-	proxy_srv.Shutdown(nil)
+	mylog.Info("proxyip begin destory.")
 	cancel_func()
-	<-close
-	proxy_f.Close()
-	mylog.Info("proxyip done ")
+	c := <-close
+	proxy_srv.Shutdown(nil)
+	mylog.Info("proxyip done ", c)
 }
 
 func delIps(ips []string) {
@@ -119,9 +124,16 @@ func getIps() []*ProxyIp {
 }
 
 func saveIpsToFile() {
+	mylog.Info("begin saveIpsToFile.")
 	proxy_locker.Lock()
 	defer proxy_locker.Unlock()
-	buf := bufio.NewWriter(proxy_f)
+	f, err := os.Create(fileName)
+	if err != nil {
+		mylog.Warn("saveIpsToFile %+v", err)
+	}
+	defer f.Close()
+
+	buf := bufio.NewWriter(f)
 	for _, v := range proxy_map {
 		b, err := json.Marshal(v)
 		if err != nil {
@@ -133,25 +145,30 @@ func saveIpsToFile() {
 		if err != nil {
 			mylog.Warn("saveIpsToFile write into file err:%+v proxy:%+v", err, v)
 		}
+		mylog.Debug("err:%+v save %+v", err, string(b))
 	}
+	err = buf.Flush()
+	if err != nil {
+		mylog.Info("saveIpsToFile fail. ")
+	}
+	mylog.Info("end saveIpsToFile. ")
 }
 
 func readIpsFromFile() {
-	proxy_locker.Lock()
-	defer proxy_locker.Unlock()
+	mylog.Info("begin readIpsFromFile.")
 
 	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		mylog.Warn("readIpsFromFile read %s err:%+v", fileName, err)
 		return
 	}
-	proxy_f = f
+	defer f.Close()
 
 	buf := bufio.NewReader(f)
 	for {
 		line, err := buf.ReadBytes('\n')
 		if err != nil {
-			return
+			break
 		}
 		proxy := &ProxyIp{}
 		err = json.Unmarshal(line, proxy)
@@ -159,6 +176,10 @@ func readIpsFromFile() {
 			mylog.Warn("readIpsFromFile json unmarshal err:%+v line:%s", err, line)
 			continue
 		}
+		mylog.Debug("read %+v", proxy)
 		addProxyIp(proxy)
 	}
+
+	mylog.Info("end readIpsFromFile.len:%d", len(proxy_map))
+
 }
