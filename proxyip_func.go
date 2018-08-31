@@ -10,6 +10,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/adamluo159/mylog"
+	"github.com/imroc/req"
 )
 
 var (
@@ -59,6 +60,7 @@ func getWebDoc(urls, proxyUrl string) (*goquery.Document, error) {
 	if err != nil {
 		return nil, fmt.Errorf("getWebDoc url:%s proxy:%+v,  NewDocumentFromResponse err :%+v", urls, proxyUrl, err)
 	}
+
 	mylog.Debug("get web doc url:%s proxy:%+v", urls, proxyUrl)
 
 	return doc, nil
@@ -68,14 +70,6 @@ func get(url_d string) (*goquery.Document, error) {
 	var doc *goquery.Document = nil
 	var err error
 	var del_ips []string = make([]string, 0, ipcount)
-
-	//	isHttp := strings.Contains(url_d, "http")
-	//	if !isHttp {
-	//		isHttps := strings.Contains(url_d, "https")
-	//		if !isHttps {
-	//			return nil, fmt.Errorf("url err :%s", url_d)
-	//		}
-	//	}
 
 	var done bool = false
 	for {
@@ -109,7 +103,7 @@ func get(url_d string) (*goquery.Document, error) {
 }
 
 func Getxici(glocker *sync.WaitGroup) {
-	xici_addr := "http://www.xicidaili.com/wn/"
+	xici_addr := "http://www.xicidaili.com/wt/"
 	for i := 1; i <= 10; i++ {
 		xicipage := xici_addr + strconv.Itoa(i)
 		doc, err := get(xicipage)
@@ -122,7 +116,6 @@ func Getxici(glocker *sync.WaitGroup) {
 			port := context.Find("td").Eq(2).Text()
 			urlstr := context.Find("td").Eq(5).Text()
 			addr := ip + ":" + port
-
 			addIp(addr, urlstr == "HTTP")
 			mylog.Debug("xici get proxy index:%d type:%s url:%+v", i, urlstr, addr)
 		})
@@ -131,32 +124,60 @@ func Getxici(glocker *sync.WaitGroup) {
 }
 
 func checkProxy(proxyurl string) bool {
-	checkUrl := "http://www.baidu.com"
-	request, _ := http.NewRequest("GET", checkUrl, nil)
-	request.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-	request.Header.Set("Connection", "keep-alive")
-	request.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36")
-	client := &http.Client{
-		Timeout: time.Duration(20 * time.Second),
+	checkUrl := "http://httpbin.org/get"
+	//	request, _ := http.NewRequest("GET", checkUrl, nil)
+	//	request.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	//	request.Header.Set("Connection", "keep-alive")
+	//	request.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36")
+	//	client := &http.Client{
+	//		Timeout: time.Duration(20 * time.Second),
+	//	}
+	//
+	//	proxyUrl, _ := url.Parse("http://" + proxyurl)
+	//	client.Transport = &http.Transport{
+	//		Proxy: http.ProxyURL(proxyUrl),
+	//	}
+	//
+	//	response, err := client.Do(request)
+	//	if err != nil {
+	//		mylog.Warn("getRep url:%s proxy:%+v err:%+v\n", checkUrl, proxyurl, err)
+	//		return false
+	//	}
+	//
+	//	if response.StatusCode != 200 {
+	//		mylog.Warn("getRep url:%s proxy:%+v statucode:%d", checkUrl, proxyurl, response.StatusCode)
+	//		return false
+	//	}
+	//
+	//	mylog.Debug("getRep url:%s proxy:%+v statucode:%d", checkUrl, proxyurl, response.StatusCode)
+	//
+	r := req.New()
+	r.SetTimeout(20 * time.Second)
+
+	header := make(req.Header)
+	header["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36"
+
+	if proxyurl != "" {
+		err := r.SetProxyUrl(proxyurl)
+		if err != nil {
+			mylog.Warn("checkUrl url:%s proxy:%+v err:+v", checkUrl, proxyurl, err)
+			return false
+		}
 	}
 
-	proxyUrl, _ := url.Parse("http://" + proxyurl)
-	client.Transport = &http.Transport{
-		Proxy: http.ProxyURL(proxyUrl),
-	}
-
-	response, err := client.Do(request)
+	res, err := r.Get(checkUrl, header)
 	if err != nil {
-		mylog.Warn("getRep url:%s proxy:%+v err:%+v\n", checkUrl, proxyurl, err)
+		mylog.Warn("checkUrl get url:%s proxy:%+v err:+v", checkUrl, proxyurl, err)
 		return false
+
 	}
+
+	response := res.Response()
+	mylog.Debug("checkUrl url:%s proxy:%+v statucode:%+v", checkUrl, proxyurl, response.StatusCode)
 
 	if response.StatusCode != 200 {
-		mylog.Warn("getRep url:%s proxy:%+v statucode:%d", checkUrl, proxyurl, response.StatusCode)
 		return false
 	}
-
-	mylog.Debug("getRep url:%s proxy:%+v statucode:%d", checkUrl, proxyurl, response.StatusCode)
 
 	return true
 }

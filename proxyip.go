@@ -45,7 +45,7 @@ func Run(serverAddr string) {
 				proxy_locker.Unlock()
 
 				for _, tmp_v := range tmp_proxy_map {
-					tmp_v.usable = checkProxy(tmp_v.Addr)
+					tmp_v.usable = checkProxy("http://" + tmp_v.Addr)
 					if !tmp_v.usable {
 						proxy_locker.Lock()
 						delete(proxy_map, tmp_v.Addr)
